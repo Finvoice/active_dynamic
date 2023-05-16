@@ -1,8 +1,12 @@
 module ActiveDynamic
   module ActiveRecord
 
-    def has_dynamic_attributes(evaluation_field: nil)
-      @evaluation_field = evaluation_field
+    def has_dynamic_attributes
+      include ActiveDynamic::HasDynamicAttributes
+    end
+
+    def has_dynamic_attributes_using_object_type
+      @@filter_column = 'object_type'
       include ActiveDynamic::HasDynamicAttributes
     end
 
