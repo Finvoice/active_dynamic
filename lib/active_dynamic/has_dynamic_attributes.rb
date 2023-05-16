@@ -88,7 +88,7 @@ module ActiveDynamic
 
     def resolve_from_provider
       return ActiveDynamic.configuration.provider_class.new(self, send(@@filter_column)).call if @@filter_column
-      ActiveDynamic.configuration.provider_class.new(self, nil)
+      ActiveDynamic.configuration.provider_class.new(self, nil).call
     end
 
     def generate_accessors(fields)
