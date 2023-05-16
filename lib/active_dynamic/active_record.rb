@@ -1,7 +1,8 @@
 module ActiveDynamic
   module ActiveRecord
 
-    def has_dynamic_attributes
+    def has_dynamic_attributes(evaluation_field: nil)
+      @evaluation_field = evaluation_field
       include ActiveDynamic::HasDynamicAttributes
     end
 
