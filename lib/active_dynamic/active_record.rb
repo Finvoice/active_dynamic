@@ -6,7 +6,7 @@ module ActiveDynamic
     end
 
     def has_dynamic_attributes_using_object_type
-      @@filter_column = 'object_type'
+      @filter_column = 'object_type'
       include ActiveDynamic::HasDynamicAttributes
     end
 
