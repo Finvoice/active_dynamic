@@ -87,7 +87,7 @@ module ActiveDynamic
     end
 
     def resolve_from_provider
-      return ActiveDynamic.configuration.provider_class.new(self, send(@filter_column)).call if @filter_column
+      return ActiveDynamic.configuration.provider_class.new(self, object_type).call if @filter_column
       ActiveDynamic.configuration.provider_class.new(self, nil).call
     end
 
