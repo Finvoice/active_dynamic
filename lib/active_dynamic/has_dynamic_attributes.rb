@@ -87,7 +87,9 @@ module ActiveDynamic
     end
 
     def resolve_from_provider
-      ActiveDynamic.configuration.provider_class.new(self, object_type).call
+      filtered_value = nil
+      filtered_value = object_type if has_attribute?(:object_type)
+      ActiveDynamic.configuration.provider_class.new(self, filtered_value).call
     end
 
     def generate_accessors(fields)
