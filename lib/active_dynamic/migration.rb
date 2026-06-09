@@ -9,6 +9,7 @@ class CreateActiveDynamicAttributesTable < ActiveRecord::Migration[4.2]
       t.string :display_name, null: false
       t.integer :datatype
       t.text :value
+      t.text :sensitive_value
       t.boolean :required, null: false, default: false
 
       t.timestamps
