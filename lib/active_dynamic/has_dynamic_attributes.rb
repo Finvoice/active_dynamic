@@ -74,12 +74,33 @@ module ActiveDynamic
       active_dynamic_attributes.any?
     end
 
+    # Returns the union of the record's persisted attributes and the provider's
+    # current attribute definitions, with persisted rows taking precedence when a
+    # name exists in both. The provider-defined fields that are not yet persisted
+    # are returned as plain in-memory ActiveDynamic::Attribute instances. 
+    # They only reach the database when the record is saved through `save_dynamic_attributes`
+    # and a value has been set for them.
     def resolve_combined
-      attributes = resolve_from_db
-      resolve_from_provider.each do |attribute|
-        attributes << ActiveDynamic::Attribute.new(attribute.as_json) unless attributes.find { |attr| attr.name == attribute.name }
-      end
-      attributes
+      persisted = resolve_from_db
+      persisted_names = persisted.map(&:name).to_set
+
+      provider_only = resolve_from_provider
+                      .reject { |attribute_definition| persisted_names.include?(attribute_definition.name) }
+                      .map { |attribute_definition| build_attribute(attribute_definition) }
+
+      persisted + provider_only
+    end
+
+    def build_attribute(attribute_definition)
+      ActiveDynamic::Attribute.new(
+        customizable: self,
+        name: attribute_definition.name,
+        display_name: attribute_definition.display_name,
+        datatype: attribute_definition.datatype,
+        value: attribute_definition.value,
+        required: attribute_definition.required?,
+        encrypt_value: attribute_definition.encrypt_value
+      )
     end
 
     def resolve_from_db
@@ -120,7 +141,7 @@ module ActiveDynamic
 
     def load_dynamic_attributes
       dynamic_attributes.each do |field|
-        _custom_fields[field.name] = field.is_a?(ActiveDynamic::Attribute) ? field.resolved_value : field.value
+        _custom_fields[field.name] = field.value
       end
 
       generate_accessors dynamic_attributes
@@ -128,12 +149,16 @@ module ActiveDynamic
     end
 
     def save_dynamic_attributes
+      # `field` is polymorphic, depending on the parent's state (see #dynamic_attributes):
+      #   - new record .................. AttributeDefinition (from the provider)
+      #   - persisted, no rows yet ...... AttributeDefinition (from the provider)
+      #   - persisted, has rows ......... ActiveDynamic::Attribute (DB rows + provider-built ones)
       dynamic_attributes.each do |field|
         next unless _custom_fields[field.name]
         attr = active_dynamic_attributes.find_or_initialize_by(name: field.name)
         attr.assign_attributes(display_name: field.display_name, datatype: field.datatype, required: field.required?) if attr.new_record?
         raw_value = _custom_fields[field.name]
-        should_encrypt = field.try(:encrypt_value) || attr.encrypted_value.present?
+        should_encrypt = field.encrypt_value || attr.encrypted_value.present?
         updates = should_encrypt ? { encrypted_value: raw_value, value: nil } : { value: raw_value, encrypted_value: nil }
         persisted? ? attr.update(updates) : attr.assign_attributes(updates)
       end

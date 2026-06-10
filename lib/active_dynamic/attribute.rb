@@ -7,8 +7,14 @@ module ActiveDynamic
 
     encrypts :encrypted_value
 
-    def resolved_value
-      encrypted_value.present? ? encrypted_value : value
+    # Transient, non-persisted flag. Set from the AttributeDefinition / provider
+    # (MetaField#encrypt_value) so the write path knows whether to encrypt.
+    attr_accessor :encrypt_value
+
+    # Reads resolve transparently to the encrypted column when present,
+    # falling back to the plaintext column otherwise. Callers just use #value.
+    def value
+      encrypted_value.presence || super
     end
   end
 end

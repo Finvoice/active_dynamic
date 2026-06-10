@@ -1,7 +1,7 @@
 module ActiveDynamic
   class AttributeDefinition
 
-    attr_reader :display_name, :datatype, :value, :name, :required
+    attr_reader :display_name, :datatype, :value, :name, :required, :encrypt_value
 
     def initialize(display_name, params = {})
       options = params.dup
@@ -10,6 +10,7 @@ module ActiveDynamic
       @datatype = options.delete(:datatype)
       @value = options.delete(:default_value)
       @required = options.delete(:required) || false
+      @encrypt_value = options.delete(:encrypt_value) || false
 
       # custom attributes from Provider
       options.each do |key, value|
