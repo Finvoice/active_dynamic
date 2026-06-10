@@ -9,7 +9,7 @@ class CreateActiveDynamicAttributesTable < ActiveRecord::Migration[4.2]
       t.string :display_name, null: false
       t.integer :datatype
       t.text :value
-      t.text :sensitive_value
+      t.text :encrypted_value
       t.boolean :required, null: false, default: false
 
       t.timestamps
@@ -17,6 +17,10 @@ class CreateActiveDynamicAttributesTable < ActiveRecord::Migration[4.2]
 
     add_index :active_dynamic_attributes, :customizable_id
     add_index :active_dynamic_attributes, :customizable_type
+    add_index :active_dynamic_attributes,
+              %i[customizable_id customizable_type name],
+              unique: true,
+              name: 'index_active_dynamic_attributes_on_owner_and_name'
   end
 
 end
