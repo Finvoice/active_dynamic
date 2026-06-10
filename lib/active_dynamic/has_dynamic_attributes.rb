@@ -83,8 +83,15 @@ module ActiveDynamic
     def resolve_combined
       persisted = resolve_from_db
       persisted_names = persisted.map(&:name).to_set
+      attribute_definitions = resolve_from_provider
 
-      provider_only = resolve_from_provider
+      # Stamp the definition's current encryption flag onto the persisted rows so
+      # that updating a value after its field is flagged re-routes it to the
+      # encrypted column (see Attribute#assign_value).
+      definitions_by_name = attribute_definitions.index_by(&:name)
+      persisted.each { |attribute| attribute.encrypt_value = definitions_by_name[attribute.name]&.encrypt_value }
+
+      provider_only = attribute_definitions
                       .reject { |attribute_definition| persisted_names.include?(attribute_definition.name) }
                       .map { |attribute_definition| build_attribute(attribute_definition) }
 
@@ -157,10 +164,9 @@ module ActiveDynamic
         next unless _custom_fields[field.name]
         attr = active_dynamic_attributes.find_or_initialize_by(name: field.name)
         attr.assign_attributes(display_name: field.display_name, datatype: field.datatype, required: field.required?) if attr.new_record?
-        raw_value = _custom_fields[field.name]
-        should_encrypt = field.encrypt_value || attr.encrypted_value.present?
-        updates = should_encrypt ? { encrypted_value: raw_value, value: nil } : { value: raw_value, encrypted_value: nil }
-        persisted? ? attr.update(updates) : attr.assign_attributes(updates)
+        attr.encrypt_value = field.encrypt_value
+        attr.assign_value(_custom_fields[field.name])
+        attr.save if persisted?
       end
     end
 
