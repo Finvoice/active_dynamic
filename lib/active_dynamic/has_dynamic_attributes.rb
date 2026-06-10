@@ -119,8 +119,8 @@ module ActiveDynamic
     end
 
     def load_dynamic_attributes
-      dynamic_attributes.each do |ticket_field|
-        _custom_fields[ticket_field.name] = ticket_field.value
+      dynamic_attributes.each do |field|
+        _custom_fields[field.name] = field.is_a?(ActiveDynamic::Attribute) ? field.resolved_value : field.value
       end
 
       generate_accessors dynamic_attributes
@@ -130,12 +130,12 @@ module ActiveDynamic
     def save_dynamic_attributes
       dynamic_attributes.each do |field|
         next unless _custom_fields[field.name]
-        attr = active_dynamic_attributes.find_or_initialize_by(field.as_json)
-        if persisted?
-          attr.update(value: _custom_fields[field.name])
-        else
-          attr.assign_attributes(value: _custom_fields[field.name])
-        end
+        attr = active_dynamic_attributes.find_or_initialize_by(name: field.name)
+        attr.assign_attributes(display_name: field.display_name, datatype: field.datatype, required: field.required?) if attr.new_record?
+        raw_value = _custom_fields[field.name]
+        should_encrypt = field.try(:encrypt_value) || attr.encrypted_value.present?
+        updates = should_encrypt ? { encrypted_value: raw_value, value: nil } : { value: raw_value, encrypted_value: nil }
+        persisted? ? attr.update(updates) : attr.assign_attributes(updates)
       end
     end
 
