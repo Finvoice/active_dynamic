@@ -56,6 +56,15 @@ module ActiveDynamic
       end
     end
 
+    # The dynamic accessors are singleton methods, which `dup`/`clone` do not copy —
+    # but the instance variables tracking the loaded state are copied. Reset them so
+    # the copy lazily resolves its own accessors instead of raising NoMethodError.
+    def initialize_dup(other)
+      super
+      @dynamic_attributes_loaded = false
+      @_custom_fields = nil
+    end
+
     private
 
     def should_resolve_persisted?
@@ -157,9 +166,10 @@ module ActiveDynamic
 
     def save_dynamic_attributes
       # `field` is polymorphic, depending on the parent's state (see #dynamic_attributes):
-      #   - new record .................. AttributeDefinition (from the provider)
-      #   - persisted, no rows yet ...... AttributeDefinition (from the provider)
-      #   - persisted, has rows ......... ActiveDynamic::Attribute (DB rows + provider-built ones)
+      #   - new record .................. ActiveDynamic::AttributeDefinition (from the provider)
+      #   - persisted, no rows yet ...... ActiveDynamic::AttributeDefinition (from the provider)
+      #   - persisted, has rows ......... ActiveDynamic::Attribute (DB rows, plus provider-built
+      #                                   ones when resolve_persisted is enabled)
       dynamic_attributes.each do |field|
         next unless _custom_fields[field.name]
         attr = active_dynamic_attributes.find_or_initialize_by(name: field.name)
