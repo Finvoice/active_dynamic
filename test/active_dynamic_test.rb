@@ -78,9 +78,9 @@ class ActiveDynamicTest < Minitest::Test
 
     profile = Profile.new(first_name: 'Michael', life_story: 'Basketball machine')
     profile.save
-    was_updated = profile.update_attributes(life_story: 'Regional manager')
+    was_updated = profile.update(life_story: 'Regional manager')
 
-    assert was_updated  
+    assert was_updated
   end
 
   def test_loads_dynamic_attributes_on_find
