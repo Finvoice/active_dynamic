@@ -1,5 +1,4 @@
 module ActiveDynamic
-
   @@configuration = nil
 
   def self.configure
@@ -13,7 +12,6 @@ module ActiveDynamic
   end
 
   class Configuration
-
     def provider_class
       @provider_class || NullProvider
     end
@@ -23,6 +21,5 @@ module ActiveDynamic
     end
 
     attr_writer :provider_class, :resolve_persisted
-
   end
 end

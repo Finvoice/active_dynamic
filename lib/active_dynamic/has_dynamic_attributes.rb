@@ -14,14 +14,9 @@ module ActiveDynamic
     class_methods do
       def where_dynamic(options)
         query = joins(:active_dynamic_attributes)
-        
-        options.each do |prop, value|
-          query = query.where(active_dynamic_attributes: {
-            name: prop,
-            value: value
-          })
-        end
-        
+
+        options.each { |prop, value| query = query.where(active_dynamic_attributes: { name: prop, value: }) }
+
         query
       end
     end
@@ -47,12 +42,12 @@ module ActiveDynamic
       end
     end
 
-    def method_missing(method_name, *arguments, &block)
+    def method_missing(method_name, *, &)
       if dynamic_attributes_loaded?
         super
       else
         load_dynamic_attributes
-        send(method_name, *arguments, &block)
+        send(method_name, *, &)
       end
     end
 
@@ -77,7 +72,9 @@ module ActiveDynamic
     def resolve_combined
       attributes = resolve_from_db
       resolve_from_provider.each do |attribute|
-        attributes << ActiveDynamic::Attribute.new(attribute.as_json) unless attributes.find { |attr| attr.name == attribute.name }
+        unless attributes.find { |attr| attr.name == attribute.name }
+          attributes << ActiveDynamic::Attribute.new(attribute.as_json)
+        end
       end
       attributes
     end
@@ -94,24 +91,16 @@ module ActiveDynamic
 
     def generate_accessors(fields)
       fields.each do |field|
-
         add_presence_validator(field.name) if field.required?
 
-        define_singleton_method(field.name) do
-          _custom_fields[field.name]
-        end
+        define_singleton_method(field.name) { _custom_fields[field.name] }
 
-        define_singleton_method("#{field.name}=") do |value|
-          _custom_fields[field.name] = value && value.to_s.strip
-        end
-
+        define_singleton_method("#{field.name}=") { |value| _custom_fields[field.name] = value && value.to_s.strip }
       end
     end
 
     def add_presence_validator(attribute)
-      singleton_class.instance_eval do
-        validates_presence_of(attribute)
-      end
+      singleton_class.instance_eval { validates_presence_of(attribute) }
     end
 
     def _custom_fields
@@ -119,9 +108,7 @@ module ActiveDynamic
     end
 
     def load_dynamic_attributes
-      dynamic_attributes.each do |ticket_field|
-        _custom_fields[ticket_field.name] = ticket_field.value
-      end
+      dynamic_attributes.each { |ticket_field| _custom_fields[ticket_field.name] = ticket_field.value }
 
       generate_accessors dynamic_attributes
       @dynamic_attributes_loaded = true
@@ -130,6 +117,7 @@ module ActiveDynamic
     def save_dynamic_attributes
       dynamic_attributes.each do |field|
         next unless _custom_fields[field.name]
+
         attr = active_dynamic_attributes.find_or_initialize_by(field.as_json)
         if persisted?
           attr.update(value: _custom_fields[field.name])
@@ -138,6 +126,5 @@ module ActiveDynamic
         end
       end
     end
-
   end
 end

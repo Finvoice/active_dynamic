@@ -7,6 +7,18 @@ concurrency:
 env:
   RUBY_VERSION: 3.4.9
 jobs:
+  linting:
+    name: Linting (RuboCop)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ env.RUBY_VERSION }}
+          bundler-cache: true
+      - name: Run RuboCop
+        run: bundle exec rubocop
+
   unit-tests:
     name: Unit Tests
     runs-on: ubuntu-latest

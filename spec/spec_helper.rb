@@ -1,4 +1,4 @@
-$LOAD_PATH.unshift File.expand_path('../../lib', __FILE__)
+$LOAD_PATH.unshift File.expand_path('../lib', __dir__)
 require 'active_dynamic'
 require 'active_dynamic/migration'
 
@@ -42,14 +42,18 @@ class ProfileAttributeProvider
 
   def call
     [
-      ActiveDynamic::AttributeDefinition.new('Life Story',
-                                             datatype: ActiveDynamic::DataType::Text,
-                                             default_value: 'default value for story',
-                                             required: true),
+      ActiveDynamic::AttributeDefinition.new(
+        'Life Story',
+        datatype: ActiveDynamic::DataType::Text,
+        default_value: 'default value for story',
+        required: true
+      ),
       ActiveDynamic::AttributeDefinition.new('Age', datatype: ActiveDynamic::DataType::Integer),
-      ActiveDynamic::AttributeDefinition.new('Please, tell us what is your home town',
-                                             datatype: ActiveDynamic::DataType::Text,
-                                             system_name: 'home_town')
+      ActiveDynamic::AttributeDefinition.new(
+        'Please, tell us what is your home town',
+        datatype: ActiveDynamic::DataType::Text,
+        system_name: 'home_town'
+      )
     ]
   end
 end

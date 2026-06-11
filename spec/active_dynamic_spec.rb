@@ -94,9 +94,7 @@ RSpec.describe ActiveDynamic do
   end
 
   it 'looks up records with where_dynamic and a hash' do
-    [18, 21].each do |age|
-      Profile.new(first_name: 'Jon', age: age).save!
-    end
+    [18, 21].each { |age| Profile.new(first_name: 'Jon', age:).save! }
 
     expect(Profile.where_dynamic(age: 18).first).to be_truthy
   end
@@ -121,9 +119,7 @@ RSpec.describe ActiveDynamic do
     end
 
     it 'handles a proc resolve_persisted value' do
-      ActiveDynamic.configure do |config|
-        config.resolve_persisted = proc { |_model| true }
-      end
+      ActiveDynamic.configure { |config| config.resolve_persisted = proc { |_model| true } }
 
       expect(Profile.new.send(:should_resolve_persisted?)).to be_truthy
     end

@@ -1,6 +1,5 @@
 module ActiveDynamic
   module ActiveRecord
-
     def has_dynamic_attributes
       include ActiveDynamic::HasDynamicAttributes
     end
