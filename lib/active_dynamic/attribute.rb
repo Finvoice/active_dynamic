@@ -7,8 +7,8 @@ module ActiveDynamic
 
     encrypts :encrypted_value
 
-    # Transient, non-persisted flag. Set from the AttributeDefinition / provider
-    # (MetaField#encrypt_value) so the write path knows whether to encrypt.
+    # Transient, non-persisted flag. Set from the ActiveDynamic::AttributeDefinition /
+    # provider (MetaField#encrypt_value) so the write path knows whether to encrypt.
     attr_writer :encrypt_value
 
     # Whether the value must be stored encrypted: either flagged by the field
