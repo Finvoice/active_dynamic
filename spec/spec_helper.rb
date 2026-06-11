@@ -2,8 +2,6 @@ $LOAD_PATH.unshift File.expand_path('../../lib', __FILE__)
 require 'active_dynamic'
 require 'active_dynamic/migration'
 
-require 'minitest/autorun'
-
 # Make SQLite behave like the production MySQL schema at the one point the suite breaks.
 #
 # `save_dynamic_attributes` looks rows up with `find_or_initialize_by(field.as_json)`, which
@@ -32,7 +30,6 @@ ActiveRecord::Schema.define do
   end
 
   CreateActiveDynamicAttributesTable.migrate :up
-
 end
 
 class Profile < ActiveRecord::Base
@@ -41,7 +38,6 @@ class Profile < ActiveRecord::Base
 end
 
 class ProfileAttributeProvider
-
   def initialize(model, filtered_value = nil); end
 
   def call
@@ -56,5 +52,27 @@ class ProfileAttributeProvider
                                              system_name: 'home_town')
     ]
   end
+end
 
+RSpec.configure do |config|
+  config.expect_with(:rspec) { |expectations| expectations.syntax = :expect }
+
+  # Reset the process-global ActiveDynamic configuration before every example
+  # (mirrors the old Minitest #setup) so a `resolve_persisted = true` example
+  # cannot leak into the next one.
+  config.before do
+    ActiveDynamic.configure do |c|
+      c.provider_class = ProfileAttributeProvider
+      c.resolve_persisted = false
+    end
+  end
+
+  # Roll back DB writes after each example to keep the in-memory SQLite clean
+  # (the old Minitest suite let rows accumulate across tests).
+  config.around do |example|
+    ActiveRecord::Base.transaction do
+      example.run
+      raise ActiveRecord::Rollback
+    end
+  end
 end
