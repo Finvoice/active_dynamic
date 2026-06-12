@@ -1,7 +1,17 @@
 require 'spec_helper'
+require_relative 'support/profile'
 
 RSpec.describe ActiveDynamic do
   let(:profile) { Profile.new }
+
+  # Reset the process-global ActiveDynamic configuration before every example so a
+  # `resolve_persisted = true` example cannot leak into the next one.
+  before do
+    ActiveDynamic.configure do |c|
+      c.provider_class = ProfileAttributeProvider
+      c.resolve_persisted = false
+    end
+  end
 
   it 'initializes with a dynamic attribute' do
     profile = Profile.new(first_name: 'Dwight', life_story: 'Beet farmer / Paper Salesman')
