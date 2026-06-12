@@ -43,8 +43,9 @@ end
 
 class ProfileAttributeProvider
 
-  # Constructor will receive an instance to which dynamic attributes are added
-  def initialize(model)
+  # Constructor will receive an instance to which dynamic attributes are added,
+  # plus an optional filtered value used by where_dynamic.
+  def initialize(model, filtered_value = nil)
     @model = model
   end
   
@@ -118,7 +119,7 @@ end
  
 class ProfileAttributeProvider
  
-  def initialize(model)
+  def initialize(model, filtered_value = nil)
     @model = model   
   end
   
