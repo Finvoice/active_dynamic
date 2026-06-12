@@ -14,14 +14,9 @@ module ActiveDynamic
     class_methods do
       def where_dynamic(options)
         query = joins(:active_dynamic_attributes)
-        
-        options.each do |prop, value|
-          query = query.where(active_dynamic_attributes: {
-            name: prop,
-            value: value
-          })
-        end
-        
+
+        options.each { |prop, value| query = query.where(active_dynamic_attributes: { name: prop, value: }) }
+
         query
       end
     end
@@ -47,12 +42,12 @@ module ActiveDynamic
       end
     end
 
-    def method_missing(method_name, *arguments, &block)
+    def method_missing(method_name, *, &)
       if dynamic_attributes_loaded?
         super
       else
         load_dynamic_attributes
-        send(method_name, *arguments, &block)
+        send(method_name, *, &)
       end
     end
 
@@ -86,12 +81,12 @@ module ActiveDynamic
     # Returns the union of the record's persisted attributes and the provider's
     # current attribute definitions, with persisted rows taking precedence when a
     # name exists in both. The provider-defined fields that are not yet persisted
-    # are returned as plain in-memory ActiveDynamic::Attribute instances. 
+    # are returned as plain in-memory ActiveDynamic::Attribute instances.
     # They only reach the database when the record is saved through `save_dynamic_attributes`
     # and a value has been set for them.
     def resolve_combined
       persisted = resolve_from_db
-      persisted_names = persisted.map(&:name).to_set
+      persisted_names = persisted.to_set(&:name)
       attribute_definitions = resolve_from_provider
 
       # Stamp the definition's current encryption flag onto the persisted rows so
@@ -131,24 +126,16 @@ module ActiveDynamic
 
     def generate_accessors(fields)
       fields.each do |field|
-
         add_presence_validator(field.name) if field.required?
 
-        define_singleton_method(field.name) do
-          _custom_fields[field.name]
-        end
+        define_singleton_method(field.name) { _custom_fields[field.name] }
 
-        define_singleton_method("#{field.name}=") do |value|
-          _custom_fields[field.name] = value && value.to_s.strip
-        end
-
+        define_singleton_method("#{field.name}=") { |value| _custom_fields[field.name] = value && value.to_s.strip }
       end
     end
 
     def add_presence_validator(attribute)
-      singleton_class.instance_eval do
-        validates_presence_of(attribute)
-      end
+      singleton_class.instance_eval { validates_presence_of(attribute) }
     end
 
     def _custom_fields
@@ -156,9 +143,7 @@ module ActiveDynamic
     end
 
     def load_dynamic_attributes
-      dynamic_attributes.each do |field|
-        _custom_fields[field.name] = field.value
-      end
+      dynamic_attributes.each { |field| _custom_fields[field.name] = field.value }
 
       generate_accessors dynamic_attributes
       @dynamic_attributes_loaded = true
@@ -172,13 +157,15 @@ module ActiveDynamic
       #                                   ones when resolve_persisted is enabled)
       dynamic_attributes.each do |field|
         next unless _custom_fields[field.name]
+
         attr = active_dynamic_attributes.find_or_initialize_by(name: field.name)
-        attr.assign_attributes(display_name: field.display_name, datatype: field.datatype, required: field.required?) if attr.new_record?
+        if attr.new_record?
+          attr.assign_attributes(display_name: field.display_name, datatype: field.datatype, required: field.required?)
+        end
         attr.encrypt_value = field.encrypt_value
         attr.assign_value(_custom_fields[field.name])
         attr.save if persisted?
       end
     end
-
   end
 end

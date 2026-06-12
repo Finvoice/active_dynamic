@@ -1,5 +1,4 @@
 class CreateActiveDynamicAttributesTable < ActiveRecord::Migration[4.2]
-
   def change
     create_table :active_dynamic_attributes do |t|
       t.integer :customizable_id, null: false
@@ -18,9 +17,8 @@ class CreateActiveDynamicAttributesTable < ActiveRecord::Migration[4.2]
     add_index :active_dynamic_attributes, :customizable_id
     add_index :active_dynamic_attributes, :customizable_type
     add_index :active_dynamic_attributes,
-              %i[customizable_id customizable_type name],
+              [:customizable_id, :customizable_type, :name],
               unique: true,
               name: 'index_active_dynamic_attributes_on_owner_and_name'
   end
-
 end
