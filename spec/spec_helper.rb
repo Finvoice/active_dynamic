@@ -2,7 +2,9 @@ $LOAD_PATH.unshift File.expand_path('../lib', __dir__)
 require 'active_dynamic'
 require 'active_dynamic/migration'
 
-ActiveRecord::Base.logger = Logger.new(STDOUT)
+# Disabled: this logs every SQL statement to STDOUT and floods the spec output.
+# Uncomment to inspect the queries the gem emits while debugging a failing example.
+# ActiveRecord::Base.logger = Logger.new(STDOUT)
 ActiveRecord::Base.establish_connection adapter: 'sqlite3', database: ':memory:'
 
 ActiveRecord::Schema.define do
