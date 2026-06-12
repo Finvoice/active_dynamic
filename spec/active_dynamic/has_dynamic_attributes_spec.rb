@@ -66,6 +66,24 @@ RSpec.describe ActiveDynamic::HasDynamicAttributes do
       end
     end
 
+    context 'when the value is an empty string' do
+      let(:profile) do
+        Profile.create!(first_name: 'Dwight', life_story: 'Beet farmer', home_town: 'Scranton', ssn: '123-45-6789')
+      end
+
+      it 'round-trips on the plaintext path' do
+        Profile.find(profile.id).update!(home_town: '')
+
+        expect(Profile.find(profile.id).home_town).to eq('')
+      end
+
+      it 'round-trips on the encrypted path with the same semantics as the plaintext path' do
+        Profile.find(profile.id).update!(ssn: '')
+
+        expect(Profile.find(profile.id).ssn).to eq('')
+      end
+    end
+
     it 'creates one row per assigned field and skips fields without a value' do
       expect(profile.active_dynamic_attributes.pluck(:name)).to eq(['life_story'])
     end

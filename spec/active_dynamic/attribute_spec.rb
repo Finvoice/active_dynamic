@@ -45,16 +45,26 @@ RSpec.describe ActiveDynamic::Attribute do
       end
     end
 
-    context 'when the encrypted value is blank' do
+    context 'when the encrypted value is an empty string' do
       let(:attributes) { { value: 'plain', encrypted_value: '' } }
 
-      it 'falls back to the plaintext column' do
-        expect(attribute.value).to eq('plain')
+      it 'returns the empty string — it is a real stored value, not a missing one' do
+        expect(attribute.value).to eq('')
       end
     end
   end
 
   describe '#assign_value' do
+    context 'when flagged for encryption and given an empty string' do
+      let(:attributes) { { encrypt_value: true } }
+
+      it 'round-trips the empty string like the plaintext path does' do
+        attribute.assign_value('')
+
+        expect(attribute.value).to eq('')
+      end
+    end
+
     context 'when flagged for encryption' do
       let(:attributes) { { value: 'plain', encrypt_value: true } }
 
