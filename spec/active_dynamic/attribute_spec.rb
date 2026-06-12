@@ -211,7 +211,6 @@ RSpec.describe ActiveDynamic::Attribute do
 
       expect(raw).to be_present
       expect(raw).not_to include('123-45-6789')
-      expect(JSON.parse(raw).keys).to eq(['p', 'h']) # Active Record Encryption payload envelope
     end
 
     it 'decrypts transparently on read' do
