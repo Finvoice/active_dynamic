@@ -36,9 +36,8 @@ RSpec.describe ActiveDynamic do
     expect(profile).to respond_to(:life_story)
   end
 
-  it 'sets the attribute name' do
-    expect(profile.dynamic_attributes.map(&:name).first).to eq('life_story')
-    expect(profile.dynamic_attributes.map(&:name).last).to eq('home_town')
+  it 'sets the attribute names' do
+    expect(profile.dynamic_attributes.map(&:name)).to eq(['life_story', 'age', 'home_town', 'ssn'])
   end
 
   it 'sets the display name' do

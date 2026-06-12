@@ -23,7 +23,9 @@ class ProfileAttributeProvider
         'Please, tell us what is your home town',
         datatype: ActiveDynamic::DataType::Text,
         system_name: 'home_town'
-      )
+      ),
+      # Sensitive field — exercises the encrypted-column write/read path.
+      ActiveDynamic::AttributeDefinition.new('SSN', datatype: ActiveDynamic::DataType::Text, encrypt_value: true)
     ]
   end
 end
