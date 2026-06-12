@@ -1,6 +1,14 @@
 require 'spec_helper'
 require_relative 'support/profile'
 
+# The provider after a new field is added — the shape of deploying a new dynamic
+# attribute to a model whose records already exist.
+class ExtendedProfileAttributeProvider < ProfileAttributeProvider
+  def call
+    super + [ActiveDynamic::AttributeDefinition.new('Nickname', datatype: ActiveDynamic::DataType::Text)]
+  end
+end
+
 # End-to-end behavior of the gem driven through a host model (`Profile`) and its provider.
 # The persisted/encryption path lives in `has_dynamic_attributes_spec`; this spec covers the
 # public surface: version, the provider-backed `dynamic_attributes`, and save/load/validate.
@@ -105,6 +113,15 @@ RSpec.describe ActiveDynamic do
     end
   end
 
+  context 'when resolve_persisted is disabled' do
+    it 'hides a newly added definition, returning only persisted rows' do
+      profile = Profile.create!(first_name: 'Michael', life_story: 'Basketball machine')
+      ActiveDynamic.configure { |c| c.provider_class = ExtendedProfileAttributeProvider }
+
+      expect(Profile.find(profile.id).dynamic_attributes.map(&:name)).to eq(['life_story'])
+    end
+  end
+
   context 'when resolve_persisted is enabled' do
     before do
       ActiveDynamic.configure do |c|
@@ -117,6 +134,18 @@ RSpec.describe ActiveDynamic do
       profile = Profile.create!(first_name: 'Michael', life_story: 'Basketball machine')
 
       expect(profile.update(life_story: 'Regional manager')).to be_truthy
+    end
+
+    it 'surfaces a newly added definition on a record saved before it existed' do
+      profile = Profile.create!(first_name: 'Michael', life_story: 'Basketball machine')
+      ActiveDynamic.configure do |c|
+        c.provider_class = ExtendedProfileAttributeProvider
+        c.resolve_persisted = true
+      end
+
+      expect(Profile.find(profile.id).dynamic_attributes.map(&:name)).to eq(
+        ['life_story', 'age', 'home_town', 'nickname']
+      )
     end
 
     describe '#should_resolve_persisted?' do
