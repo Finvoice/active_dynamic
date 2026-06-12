@@ -98,6 +98,26 @@ RSpec.describe ActiveDynamic::HasDynamicAttributes do
       end
     end
 
+    context 'when the value is nil' do
+      let(:profile) { Profile.create!(first_name: 'Dwight', life_story: 'Beet farmer', ssn: '123-45-6789') }
+
+      it 'clears the encrypted value through the model accessor' do
+        Profile.find(profile.id).update!(ssn: nil)
+
+        expect(Profile.find(profile.id).ssn).to be_nil
+      end
+    end
+
+    it 'persists loaded provider defaults when the record is saved' do
+      profile = Profile.new(first_name: 'Dwight')
+
+      expect(profile.life_story).to eq('default value for story')
+
+      profile.save!(validate: false)
+
+      expect(profile.active_dynamic_attributes.find_by(name: 'life_story').value).to eq('default value for story')
+    end
+
     it 'creates one row per assigned field and skips fields without a value' do
       expect(profile.active_dynamic_attributes.pluck(:name)).to eq(['life_story'])
     end
@@ -116,6 +136,12 @@ RSpec.describe ActiveDynamic::HasDynamicAttributes do
       profile
 
       expect { dynamic_attributes }.not_to change(ActiveDynamic::Attribute, :count)
+    end
+
+    it 'does not persist provider defaults for provider-only fields on read' do
+      profile
+
+      expect { Profile.find(profile.id).home_town }.not_to change(ActiveDynamic::Attribute, :count)
     end
 
     it { expect(dynamic_attributes).to be_an(Array) }

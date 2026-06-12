@@ -156,16 +156,27 @@ module ActiveDynamic
       #   - persisted, has rows ......... ActiveDynamic::Attribute (DB rows, plus provider-built
       #                                   ones when resolve_persisted is enabled)
       dynamic_attributes.each do |field|
-        next unless _custom_fields[field.name]
+        # A key exists in _custom_fields only once the accessors were loaded; no
+        # key means the dynamic attributes were never touched on this instance.
+        next unless _custom_fields.key?(field.name)
 
-        attr = active_dynamic_attributes.find_or_initialize_by(name: field.name)
-        if attr.new_record?
-          attr.assign_attributes(display_name: field.display_name, datatype: field.datatype, required: field.required?)
-        end
-        attr.encrypt_value = field.encrypt_value
-        attr.value = _custom_fields[field.name]
-        attr.save if persisted?
+        save_dynamic_attribute(field, _custom_fields[field.name])
       end
+    end
+
+    def save_dynamic_attribute(field, field_value)
+      # nil clears an existing row but must never materialize a new one — and
+      # find_or_initialize_by appends the built record to the association, so
+      # the check has to happen before it.
+      return if field_value.nil? && active_dynamic_attributes.none? { |attribute| attribute.name == field.name }
+
+      attr = active_dynamic_attributes.find_or_initialize_by(name: field.name)
+      if attr.new_record?
+        attr.assign_attributes(display_name: field.display_name, datatype: field.datatype, required: field.required?)
+      end
+      attr.encrypt_value = field.encrypt_value
+      attr.value = field_value
+      attr.save if persisted?
     end
   end
 end
