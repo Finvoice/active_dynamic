@@ -91,7 +91,7 @@ module ActiveDynamic
 
       # Stamp the definition's current encryption flag onto the persisted rows so
       # that updating a value after its field is flagged re-routes it to the
-      # encrypted column (see ActiveDynamic::Attribute#assign_value).
+      # encrypted column (see ActiveDynamic::Attribute#value=).
       definitions_by_name = attribute_definitions.index_by(&:name)
       persisted.each { |attribute| attribute.encrypt_value = definitions_by_name[attribute.name]&.encrypt_value }
 
@@ -163,7 +163,7 @@ module ActiveDynamic
           attr.assign_attributes(display_name: field.display_name, datatype: field.datatype, required: field.required?)
         end
         attr.encrypt_value = field.encrypt_value
-        attr.assign_value(_custom_fields[field.name])
+        attr.value = _custom_fields[field.name]
         attr.save if persisted?
       end
     end

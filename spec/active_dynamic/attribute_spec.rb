@@ -32,6 +32,52 @@ RSpec.describe ActiveDynamic::Attribute do
     end
   end
 
+  describe '#assign_attributes' do
+    context 'when the row is already encrypted' do
+      let(:attributes) { { encrypted_value: 'secret' } }
+
+      it 'routes a value: through the encrypted column' do
+        attribute.assign_attributes(value: 'updated')
+
+        expect(attribute.encrypted_value).to eq('updated')
+        expect(attribute.read_attribute(:value)).to be_nil
+      end
+    end
+
+    context 'when value: comes before encrypt_value: in the hash' do
+      let(:attributes) { {} }
+
+      it 'still routes to the encrypted column — routing cannot depend on key order' do
+        attribute.assign_attributes(value: 'secret', encrypt_value: true)
+
+        expect(attribute.encrypted_value).to eq('secret')
+        expect(attribute.read_attribute(:value)).to be_nil
+      end
+    end
+
+    context 'when explicitly clearing an encrypted row with value: nil' do
+      let(:attributes) { { encrypted_value: 'secret' } }
+
+      it 'clears the encrypted column, honoring normal assignment semantics' do
+        attribute.assign_attributes(value: nil)
+
+        expect(attribute.value).to be_nil
+        expect(attribute.encrypted_value).to be_nil
+      end
+    end
+
+    context 'when explicitly clearing a plaintext row with value: nil' do
+      let(:attributes) { { value: 'plain' } }
+
+      it 'clears the plaintext column' do
+        attribute.assign_attributes(value: nil)
+
+        expect(attribute.value).to be_nil
+        expect(attribute.read_attribute(:value)).to be_nil
+      end
+    end
+  end
+
   describe '#encrypt_value' do
     context 'when the transient flag is set' do
       let(:attributes) { { encrypt_value: true } }
@@ -57,8 +103,9 @@ RSpec.describe ActiveDynamic::Attribute do
   end
 
   describe '#value' do
-    # Write the columns directly: #initialize routes a given `value:`, and these
-    # contexts simulate rows as loaded from the database (which bypass #initialize).
+    # Write the columns directly: #value= and #assign_attributes route a given
+    # value, and these contexts simulate rows as loaded from the database
+    # (which bypass both — AR instantiates them via init_with).
     subject(:attribute) do
       described_class.new.tap { |record| attributes.each { |column, column_value| record[column] = column_value } }
     end
@@ -88,12 +135,12 @@ RSpec.describe ActiveDynamic::Attribute do
     end
   end
 
-  describe '#assign_value' do
+  describe '#value=' do
     context 'when flagged for encryption and given an empty string' do
       let(:attributes) { { encrypt_value: true } }
 
       it 'round-trips the empty string like the plaintext path does' do
-        attribute.assign_value('')
+        attribute.value = ''
 
         expect(attribute.value).to eq('')
       end
@@ -103,7 +150,7 @@ RSpec.describe ActiveDynamic::Attribute do
       let(:attributes) { { value: 'plain', encrypt_value: true } }
 
       it 'routes to the encrypted column and clears the plaintext column' do
-        attribute.assign_value('secret')
+        attribute.value = 'secret'
 
         expect(attribute.encrypted_value).to eq('secret')
         expect(attribute.read_attribute(:value)).to be_nil
@@ -114,7 +161,7 @@ RSpec.describe ActiveDynamic::Attribute do
       let(:attributes) { { encrypted_value: nil } }
 
       it 'routes to the plaintext column and clears the encrypted column' do
-        attribute.assign_value('plain')
+        attribute.value = 'plain'
 
         expect(attribute.read_attribute(:value)).to eq('plain')
         expect(attribute.encrypted_value).to be_nil
@@ -126,10 +173,21 @@ RSpec.describe ActiveDynamic::Attribute do
 
       it 'keeps writing to the encrypted column' do
         attribute.encrypt_value = false
-        attribute.assign_value('updated secret')
+        attribute.value = 'updated secret'
 
         expect(attribute.encrypted_value).to eq('updated secret')
         expect(attribute.read_attribute(:value)).to be_nil
+      end
+    end
+
+    context 'when explicitly clearing an encrypted row with nil' do
+      let(:attributes) { { encrypted_value: 'secret' } }
+
+      it 'clears the encrypted column' do
+        attribute.value = nil
+
+        expect(attribute.value).to be_nil
+        expect(attribute.encrypted_value).to be_nil
       end
     end
   end
@@ -156,6 +214,30 @@ RSpec.describe ActiveDynamic::Attribute do
     end
 
     it 'decrypts transparently on read' do
+      expect(attribute.reload.value).to eq('123-45-6789')
+    end
+  end
+
+  describe 'persisting through value: with the encryption flag' do
+    subject(:attribute) do
+      described_class.create!(
+        customizable: Profile.create!(first_name: 'Dwight'),
+        name: 'ssn',
+        display_name: 'SSN',
+        datatype: ActiveDynamic::DataType::Text,
+        value: '123-45-6789',
+        encrypt_value: true
+      )
+    end
+
+    it 'stores the submitted value encrypted, not in the plaintext column' do
+      raw = ActiveRecord::Base.connection.select_one(
+        'SELECT value, encrypted_value FROM active_dynamic_attributes WHERE id = :id', nil, [attribute.id]
+      )
+
+      expect(raw['value']).to be_nil
+      expect(raw['encrypted_value']).to be_present
+      expect(raw['encrypted_value']).not_to include('123-45-6789')
       expect(attribute.reload.value).to eq('123-45-6789')
     end
   end

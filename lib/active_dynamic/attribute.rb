@@ -12,17 +12,6 @@ module ActiveDynamic
 
     encrypts :encrypted_value
 
-    # Routes a `value:` given at construction through #assign_value, so a new
-    # record honors the encryption routing the same way as any later write.
-    # Records loaded from the database do not pass through here (AR instantiates
-    # them via init_with), so existing plaintext rows are read as-is.
-    def initialize(attributes = nil, &)
-      attributes = attributes.to_h.symbolize_keys if attributes
-      raw_value = attributes&.delete(:value)
-      super
-      assign_value(raw_value) unless raw_value.nil?
-    end
-
     # Whether the value must be stored encrypted: either flagged by the field
     # definition (transient, set from the provider) or the row already stores
     # an encrypted value — a row never silently downgrades to plaintext.
@@ -37,13 +26,28 @@ module ActiveDynamic
       encrypted_value.nil? ? super : encrypted_value
     end
 
-    # Routes a raw value to the right column, clearing the other one so a field
+    # Defers a given `value:` until after the other attributes — notably the
+    # transient encrypt_value flag — so the routing in #value= cannot depend on
+    # hash-key order. Also covers construction (AR's initialize delegates here).
+    # Records loaded from the database do not pass through here (AR instantiates
+    # them via init_with), so existing plaintext rows are read as-is.
+    def assign_attributes(attributes)
+      attributes = attributes.to_h.symbolize_keys if attributes
+      has_value = attributes&.key?(:value)
+      raw_value = attributes&.delete(:value)
+      super
+      self.value = raw_value if has_value
+    end
+
+    # Routes a write to the right column, clearing the other one so a field
     # never holds both a plaintext and an encrypted value.
-    def assign_value(raw_value)
+    def value=(raw_value)
       if encrypt_value
-        assign_attributes(encrypted_value: raw_value, value: nil)
+        self.encrypted_value = raw_value
+        super(nil)
       else
-        assign_attributes(value: raw_value, encrypted_value: nil)
+        super
+        self.encrypted_value = nil
       end
     end
   end
