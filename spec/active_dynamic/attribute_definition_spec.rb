@@ -15,6 +15,18 @@ RSpec.describe ActiveDynamic::AttributeDefinition do
 
       it { expect(definition.encrypt_value).to be(true) }
     end
+
+    context 'when the option is a false-like database value' do
+      let(:params) { { datatype: ActiveDynamic::DataType::Text, encrypt_value: 0 } }
+
+      it { expect(definition.encrypt_value).to be(false) }
+    end
+
+    context 'when the option is a false-like string value' do
+      let(:params) { { datatype: ActiveDynamic::DataType::Text, encrypt_value: '0' } }
+
+      it { expect(definition.encrypt_value).to be(false) }
+    end
   end
 
   describe '#initialize' do

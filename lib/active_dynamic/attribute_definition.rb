@@ -9,7 +9,7 @@ module ActiveDynamic
       @datatype = options.delete(:datatype)
       @value = options.delete(:default_value)
       @required = options.delete(:required) || false
-      @encrypt_value = options.delete(:encrypt_value) || false
+      @encrypt_value = ActiveModel::Type::Boolean.new.cast(options.delete(:encrypt_value)) || false
 
       assign_custom_attributes(options)
     end
