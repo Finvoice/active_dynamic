@@ -18,7 +18,9 @@ require 'active_dynamic/migration'
 # workaround only; the real fix (FP-9147) is to look rows up by `name` instead of `as_json`.
 ActiveSupport::JSON::Encoding.time_precision = 6
 
-ActiveRecord::Base.logger = Logger.new(STDOUT)
+# Disabled: this logs every SQL statement to STDOUT and floods the spec output.
+# Uncomment to inspect the queries the gem emits while debugging a failing example.
+# ActiveRecord::Base.logger = Logger.new(STDOUT)
 ActiveRecord::Base.establish_connection adapter: 'sqlite3', database: ':memory:'
 
 ActiveRecord::Schema.define do
