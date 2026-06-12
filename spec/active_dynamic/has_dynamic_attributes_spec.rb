@@ -46,7 +46,7 @@ RSpec.describe ActiveDynamic::HasDynamicAttributes do
         expect(row.read_attribute_before_type_cast(:encrypted_value)).not_to include('123-45-6789')
       end
 
-      it { expect(Profile.find(profile.id).ssn).to eq('123-45-6789') }
+      it { expect(profile.ssn).to eq('123-45-6789') }
 
       it 'updates the existing row instead of creating a duplicate' do
         Profile.find(profile.id).update!(ssn: '999-99-9999')
@@ -117,8 +117,10 @@ RSpec.describe ActiveDynamic::HasDynamicAttributes do
   end
 
   describe '#respond_to?' do
-    it { expect(profile).to respond_to(:life_story) }
-    it { expect(profile).not_to respond_to(:nonexistent_field) }
+    it do
+      expect(profile).to respond_to(:life_story)
+      expect(profile).not_to respond_to(:nonexistent_field)
+    end
   end
 
   describe 'required field validation' do
@@ -129,37 +131,44 @@ RSpec.describe ActiveDynamic::HasDynamicAttributes do
     end
   end
 
-  context 'when a field is flagged for encryption after plaintext rows exist' do
-    let(:profile) { Profile.create!(first_name: 'Dwight', life_story: 'Beet farmer', ssn: '111-11-1111') }
-
+  context 'when a field is flagged for encryption after plaintext values have been persisted' do
     before do
-      # Persist the profile while the field is unflagged, then flip to the flagged
-      # provider — the same shape as deploying a `MetaField#encrypt_value` change.
-      ActiveDynamic.configure { |c| c.provider_class = PlaintextSsnProfileAttributeProvider }
+      set_up_plaintext_ssn_provider
+
+      # persist the profile with the plaintext provider
       profile
+
+      set_up_encrypted_ssn_provider
+    end
+
+    def set_up_plaintext_ssn_provider
+      ActiveDynamic.configure do |c|
+        c.provider_class = PlaintextSsnProfileAttributeProvider
+        c.resolve_persisted = true
+      end
+    end
+
+    def set_up_encrypted_ssn_provider
       ActiveDynamic.configure do |c|
         c.provider_class = ProfileAttributeProvider
         c.resolve_persisted = true
       end
     end
 
-    it { expect(profile.active_dynamic_attributes.find_by(name: 'ssn').read_attribute(:value)).to eq('111-11-1111') }
+    let(:profile) { Profile.create!(first_name: 'Dwight', life_story: 'Beet farmer', ssn: '111-11-1111') }
 
-    it { expect(Profile.find(profile.id).ssn).to eq('111-11-1111') }
+    it 're-routes to the encrypted column and clears the plaintext value after the flag is enabled' do
+      ssn_row = profile.active_dynamic_attributes.find_by(name: 'ssn')
 
-    it 'stamps the definition flag onto the persisted row' do
-      ssn = Profile.find(profile.id).dynamic_attributes.find { |attribute| attribute.name == 'ssn' }
+      expect(ssn_row.read_attribute(:value)).to eq('111-11-1111')
+      expect(ssn_row.read_attribute(:encrypted_value)).to be_nil
 
-      expect(ssn).to be_persisted
-      expect(ssn.encrypt_value).to be(true)
-    end
+      profile.update!(ssn: '222-22-2222')
 
-    it 're-routes the value to the encrypted column on the next update' do
-      Profile.find(profile.id).update!(ssn: '222-22-2222')
-
-      row = profile.reload.active_dynamic_attributes.find_by(name: 'ssn')
-      expect(row.read_attribute(:value)).to be_nil
-      expect(row.value).to eq('222-22-2222')
+      ssn_row.reload
+      expect(ssn_row.read_attribute(:value)).to be_nil
+      expect(ssn_row.read_attribute(:encrypted_value)).to be_present
+      expect(ssn_row.value).to eq('222-22-2222')
     end
   end
 
