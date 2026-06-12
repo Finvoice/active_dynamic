@@ -231,9 +231,10 @@ RSpec.describe ActiveDynamic::Attribute do
     end
 
     it 'stores the submitted value encrypted, not in the plaintext column' do
-      raw = ActiveRecord::Base.connection.select_one(
-        'SELECT value, encrypted_value FROM active_dynamic_attributes WHERE id = :id', nil, [attribute.id]
+      sql = ActiveRecord::Base.sanitize_sql(
+        ['SELECT value, encrypted_value FROM active_dynamic_attributes WHERE id = ?', attribute.id]
       )
+      raw = ActiveRecord::Base.connection.select_one(sql)
 
       expect(raw['value']).to be_nil
       expect(raw['encrypted_value']).to be_present
