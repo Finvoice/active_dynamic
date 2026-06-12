@@ -1,6 +1,6 @@
 module ActiveDynamic
   class NullProvider
-    def initialize(model); end
+    def initialize(model, _filtered_value = nil); end
 
     def call
       []
