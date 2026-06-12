@@ -12,6 +12,17 @@ module ActiveDynamic
 
     encrypts :encrypted_value
 
+    # Routes a `value:` given at construction through #assign_value, so a new
+    # record honors the encryption routing the same way as any later write.
+    # Records loaded from the database do not pass through here (AR instantiates
+    # them via init_with), so existing plaintext rows are read as-is.
+    def initialize(attributes = nil, &)
+      attributes = attributes.to_h.symbolize_keys if attributes
+      raw_value = attributes&.delete(:value)
+      super
+      assign_value(raw_value) unless raw_value.nil?
+    end
+
     # Whether the value must be stored encrypted: either flagged by the field
     # definition (transient, set from the provider) or the row already stores
     # an encrypted value — a row never silently downgrades to plaintext.

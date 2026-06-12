@@ -4,6 +4,34 @@ require_relative '../support/profile'
 RSpec.describe ActiveDynamic::Attribute do
   subject(:attribute) { described_class.new(attributes) }
 
+  describe '#initialize' do
+    context 'when given a value and the encryption flag' do
+      let(:attributes) { { value: 'secret', encrypt_value: true } }
+
+      it 'routes the value to the encrypted column, like any other write' do
+        expect(attribute.encrypted_value).to eq('secret')
+        expect(attribute.read_attribute(:value)).to be_nil
+      end
+    end
+
+    context 'when given a value without the flag' do
+      let(:attributes) { { value: 'plain' } }
+
+      it 'routes the value to the plaintext column' do
+        expect(attribute.read_attribute(:value)).to eq('plain')
+        expect(attribute.encrypted_value).to be_nil
+      end
+    end
+
+    context 'when no value is given' do
+      let(:attributes) { { encrypted_value: 'secret' } }
+
+      it 'does not clear an explicitly assigned encrypted value' do
+        expect(attribute.encrypted_value).to eq('secret')
+      end
+    end
+  end
+
   describe '#encrypt_value' do
     context 'when the transient flag is set' do
       let(:attributes) { { encrypt_value: true } }
@@ -29,6 +57,12 @@ RSpec.describe ActiveDynamic::Attribute do
   end
 
   describe '#value' do
+    # Write the columns directly: #initialize routes a given `value:`, and these
+    # contexts simulate rows as loaded from the database (which bypass #initialize).
+    subject(:attribute) do
+      described_class.new.tap { |record| attributes.each { |column, column_value| record[column] = column_value } }
+    end
+
     context 'when an encrypted value is present' do
       let(:attributes) { { value: 'plain', encrypted_value: 'secret' } }
 

@@ -13,6 +13,20 @@ class PlaintextSsnProfileAttributeProvider < ProfileAttributeProvider
   end
 end
 
+# Flags the SSN field for encryption *and* gives it a default value — exercises how
+# provider-built (not yet persisted) attributes carry a default for a flagged field.
+class DefaultedSsnProfileAttributeProvider < ProfileAttributeProvider
+  def call
+    super.map do |definition|
+      next definition unless definition.name == 'ssn'
+
+      ActiveDynamic::AttributeDefinition.new(
+        'SSN', datatype: ActiveDynamic::DataType::Text, encrypt_value: true, default_value: '000-00-0000'
+      )
+    end
+  end
+end
+
 RSpec.describe ActiveDynamic::HasDynamicAttributes do
   let(:profile) { Profile.create!(first_name: 'Dwight', life_story: 'Beet farmer') }
 
@@ -122,6 +136,27 @@ RSpec.describe ActiveDynamic::HasDynamicAttributes do
       subject(:dynamic_attributes) { Profile.new(first_name: 'Jim').dynamic_attributes }
 
       it { expect(dynamic_attributes).to all(be_a(ActiveDynamic::AttributeDefinition)) }
+    end
+
+    context 'when a flagged field has a default value' do
+      before do
+        profile # persist with rows so the provider-built (resolve_combined) path is exercised
+
+        ActiveDynamic.configure do |c|
+          c.provider_class = DefaultedSsnProfileAttributeProvider
+          c.resolve_persisted = true
+        end
+      end
+
+      let(:ssn) { dynamic_attributes.find { |attribute| attribute.name == 'ssn' } }
+
+      it 'never carries the default in the plaintext column' do
+        expect(ssn.read_attribute(:value)).to be_nil
+      end
+
+      it 'serves the default through the encrypted routing' do
+        expect(ssn.value).to eq('000-00-0000')
+      end
     end
 
     context 'when resolve_persisted is false' do
