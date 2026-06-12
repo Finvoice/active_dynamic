@@ -1,0 +1,118 @@
+require 'spec_helper'
+require_relative '../support/profile'
+
+RSpec.describe ActiveDynamic::Attribute do
+  subject(:attribute) { described_class.new(attributes) }
+
+  describe '#encrypt_value' do
+    context 'when the transient flag is set' do
+      let(:attributes) { { encrypt_value: true } }
+
+      it { expect(attribute.encrypt_value).to be(true) }
+    end
+
+    context 'when the row already stores an encrypted value' do
+      let(:attributes) { { encrypted_value: 'secret' } }
+
+      it 'is true even without the flag, so a row never downgrades to plaintext' do
+        expect(attribute.encrypt_value).to be(true)
+      end
+    end
+
+    context 'when the flag is not set and there is no encrypted value' do
+      let(:attributes) { { value: 'plain' } }
+
+      it 'is falsey' do
+        expect(attribute.encrypt_value).to be_falsey
+      end
+    end
+  end
+
+  describe '#value' do
+    context 'when an encrypted value is present' do
+      let(:attributes) { { value: 'plain', encrypted_value: 'secret' } }
+
+      it 'returns the encrypted value' do
+        expect(attribute.value).to eq('secret')
+      end
+    end
+
+    context 'when the encrypted value is nil' do
+      let(:attributes) { { value: 'plain', encrypted_value: nil } }
+
+      it 'falls back to the plaintext column' do
+        expect(attribute.value).to eq('plain')
+      end
+    end
+
+    context 'when the encrypted value is blank' do
+      let(:attributes) { { value: 'plain', encrypted_value: '' } }
+
+      it 'falls back to the plaintext column' do
+        expect(attribute.value).to eq('plain')
+      end
+    end
+  end
+
+  describe '#assign_value' do
+    context 'when flagged for encryption' do
+      let(:attributes) { { value: 'plain', encrypt_value: true } }
+
+      it 'routes to the encrypted column and clears the plaintext column' do
+        attribute.assign_value('secret')
+
+        expect(attribute.encrypted_value).to eq('secret')
+        expect(attribute.read_attribute(:value)).to be_nil
+      end
+    end
+
+    context 'when not flagged' do
+      let(:attributes) { { encrypted_value: nil } }
+
+      it 'routes to the plaintext column and clears the encrypted column' do
+        attribute.assign_value('plain')
+
+        expect(attribute.read_attribute(:value)).to eq('plain')
+        expect(attribute.encrypted_value).to be_nil
+      end
+    end
+
+    context 'when the row is already encrypted and the flag is turned off' do
+      let(:attributes) { { encrypted_value: 'secret' } }
+
+      it 'keeps writing to the encrypted column' do
+        attribute.encrypt_value = false
+        attribute.assign_value('updated secret')
+
+        expect(attribute.encrypted_value).to eq('updated secret')
+        expect(attribute.read_attribute(:value)).to be_nil
+      end
+    end
+  end
+
+  describe '#encrypted_value' do
+    subject(:attribute) do
+      described_class.create!(
+        customizable: Profile.create!(first_name: 'Dwight'),
+        name: 'ssn',
+        display_name: 'SSN',
+        datatype: ActiveDynamic::DataType::Text,
+        encrypted_value: '123-45-6789'
+      )
+    end
+
+    it 'stores ciphertext at rest, not plaintext' do
+      raw = ActiveRecord::Base.connection.select_value(
+        'SELECT encrypted_value FROM active_dynamic_attributes WHERE id = :id', nil, [attribute.id]
+      )
+
+      expect(raw).to be_present
+      expect(raw).not_to include('123-45-6789')
+      expect(JSON.parse(raw).keys).to eq(['p', 'h']) # Active Record Encryption payload envelope
+    end
+
+    it 'decrypts transparently on read' do
+      expect(attribute.reload.value).to eq('123-45-6789')
+    end
+  end
+end
