@@ -204,9 +204,10 @@ RSpec.describe ActiveDynamic::Attribute do
     end
 
     it 'stores ciphertext at rest, not plaintext' do
-      raw = ActiveRecord::Base.connection.select_value(
-        'SELECT encrypted_value FROM active_dynamic_attributes WHERE id = :id', nil, [attribute.id]
+      sql = ActiveRecord::Base.sanitize_sql(
+        ['SELECT encrypted_value FROM active_dynamic_attributes WHERE id = ?', attribute.id]
       )
+      raw = ActiveRecord::Base.connection.select_value(sql)
 
       expect(raw).to be_present
       expect(raw).not_to include('123-45-6789')

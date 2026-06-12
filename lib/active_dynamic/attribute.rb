@@ -26,11 +26,8 @@ module ActiveDynamic
       encrypted_value.nil? ? super : encrypted_value
     end
 
-    # Defers a given `value:` until after the other attributes — notably the
-    # transient encrypt_value flag — so the routing in #value= cannot depend on
-    # hash-key order. Also covers construction (AR's initialize delegates here).
-    # Records loaded from the database do not pass through here (AR instantiates
-    # them via init_with), so existing plaintext rows are read as-is.
+    # Assigns `value:` last so encryption routing sees the current encrypt_value flag,
+    # independent of hash-key order. Database loads bypass this path.
     def assign_attributes(attributes)
       attributes = attributes.to_h.symbolize_keys if attributes
       has_value = attributes&.key?(:value)
@@ -39,8 +36,8 @@ module ActiveDynamic
       self.value = raw_value if has_value
     end
 
-    # Routes a write to the right column, clearing the other one so a field
-    # never holds both a plaintext and an encrypted value.
+    # Writes to one storage column and clears the other, so a row never holds
+    # both plaintext and encrypted values.
     def value=(raw_value)
       if encrypt_value
         self.encrypted_value = raw_value
