@@ -1,11 +1,20 @@
 require 'spec_helper'
 require_relative 'support/profile'
 
-RSpec.describe ActiveDynamic do
-  let(:profile) { Profile.new }
+# The provider after a new field is added — the shape of deploying a new dynamic
+# attribute to a model whose records already exist.
+class ExtendedProfileAttributeProvider < ProfileAttributeProvider
+  def call
+    super + [ActiveDynamic::AttributeDefinition.new('Nickname', datatype: ActiveDynamic::DataType::Text)]
+  end
+end
 
-  # Reset the process-global ActiveDynamic configuration before every example so a
-  # `resolve_persisted = true` example cannot leak into the next one.
+# End-to-end behavior of the gem driven through a host model (`Profile`) and its provider.
+# The persisted/encryption path lives in `has_dynamic_attributes_spec`; this spec covers the
+# public surface: version, the provider-backed `dynamic_attributes`, and save/load/validate.
+RSpec.describe ActiveDynamic do
+  let(:profile) { Profile.new(first_name: 'Dwight') }
+
   before do
     ActiveDynamic.configure do |c|
       c.provider_class = ProfileAttributeProvider
@@ -13,124 +22,150 @@ RSpec.describe ActiveDynamic do
     end
   end
 
-  it 'initializes with a dynamic attribute' do
-    profile = Profile.new(first_name: 'Dwight', life_story: 'Beet farmer / Paper Salesman')
-    profile.save!
-
-    expect(profile).to be_persisted
-  end
-
-  it 'has a version number' do
+  it 'exposes a version number' do
     expect(ActiveDynamic::VERSION).not_to be_nil
   end
 
-  it 'injects dynamic attributes' do
-    expect(profile.dynamic_attributes).to be_a(Array)
+  describe '#dynamic_attributes' do
+    subject(:dynamic_attributes) { profile.dynamic_attributes }
+
+    it do
+      expect(dynamic_attributes).to be_an(Array)
+      expect(dynamic_attributes.map(&:name)).to eq(['life_story', 'age', 'home_town', 'ssn'])
+      expect(dynamic_attributes.map(&:display_name)).to eq(
+        ['Life Story', 'Age', 'Please, tell us what is your home town', 'SSN']
+      )
+    end
+
+    it 'exposes accessors and the loaded-state predicate on the host' do
+      expect(profile).to respond_to(:life_story, :dynamic_attributes_loaded?)
+    end
   end
 
-  it 'responds to dynamic_attributes_loaded?' do
-    expect(profile).to respond_to(:dynamic_attributes_loaded?)
+  describe '#save' do
+    it 'persists a value set through the generated accessor' do
+      profile.life_story = 'Beet farmer / Paper Salesman'
+
+      expect(profile.save).to be_truthy
+      expect(profile.life_story).to eq('Beet farmer / Paper Salesman')
+    end
+
+    it 'persists values assigned through .new' do
+      profile = Profile.new(first_name: 'Michael', life_story: 'Basketball machine')
+
+      expect(profile.save).to be_truthy
+      expect(profile.life_story).to eq('Basketball machine')
+    end
+
+    it 'accepts integer-typed values' do
+      profile.age = 21
+
+      expect(profile.save).to be_truthy
+    end
+
+    context 'when a required dynamic attribute is missing' do
+      it 'does not persist' do
+        profile.life_story = nil
+
+        expect(profile.save).to be_falsey
+        expect(profile).not_to be_persisted
+      end
+    end
+
+    context 'when the save fails' do
+      let(:profile) { Profile.new } # first_name is required, so the record is invalid
+
+      it 'keeps assigned dynamic values in memory' do
+        profile.life_story = 'Beet farmer / Paper Salesman'
+        profile.save
+
+        expect(profile).not_to be_persisted
+        expect(profile.life_story).to eq('Beet farmer / Paper Salesman')
+      end
+    end
   end
 
-  it 'exposes accessors from the attribute provider' do
-    expect(profile).to respond_to(:life_story)
+  describe '#home_town=' do
+    it 'allows clearing a value back to nil' do
+      profile.life_story = 'Beet farmer / Paper Salesman'
+      profile.home_town = 'Scranton'
+      profile.save!
+      profile.home_town = nil
+
+      expect(profile.home_town).to be_nil
+    end
   end
 
   it 'sets the attribute names' do
     expect(profile.dynamic_attributes.map(&:name)).to eq(['life_story', 'age', 'home_town', 'ssn'])
   end
 
-  it 'sets the display name' do
-    expect(profile.dynamic_attributes.map(&:display_name).first).to eq('Life Story')
+  describe '.find' do
+    it 'reloads persisted dynamic values' do
+      profile.life_story = 'Beet farmer / Paper Salesman'
+      profile.save!
+
+      expect(Profile.find(profile.id).life_story).to eq('Beet farmer / Paper Salesman')
+    end
   end
 
-  it 'does not reset the field on a failed save' do
-    profile.life_story = 'Beet farmer / Paper Salesman'
-    profile.save
+  describe '.where_dynamic' do
+    it 'finds records by a dynamic attribute value' do
+      [18, 21].each { |age| Profile.create!(first_name: 'Jon', age:) }
 
-    expect(profile).not_to be_persisted
-    expect(profile.life_story).to eq('Beet farmer / Paper Salesman')
+      expect(Profile.where_dynamic(age: 18).count).to eq(1)
+    end
   end
 
-  it 'persists a dynamic attribute' do
-    profile.first_name = 'Dwight'
-    profile.life_story = 'Beet farmer / Paper Salesman'
-    profile.save
+  context 'when resolve_persisted is disabled' do
+    it 'hides a newly added definition, returning only persisted rows' do
+      profile = Profile.create!(first_name: 'Michael', life_story: 'Basketball machine')
+      ActiveDynamic.configure { |c| c.provider_class = ExtendedProfileAttributeProvider }
 
-    expect(profile).to be_persisted
-    expect(profile.life_story).not_to be_empty
-  end
-
-  it 'persists when initialized with attributes' do
-    profile = Profile.new(first_name: 'Michael', life_story: 'Basketball machine')
-    profile.save
-
-    expect(profile).to be_persisted
-    expect(profile.life_story).not_to be_empty
-  end
-
-  it 'loads dynamic attributes on find' do
-    profile.first_name = 'Dwight'
-    profile.life_story = 'Beet farmer / Paper Salesman'
-    profile.save
-
-    loaded_profile = Profile.find(profile.id)
-    expect(loaded_profile.life_story).to eq('Beet farmer / Paper Salesman')
-  end
-
-  it 'validates a required attribute' do
-    profile.life_story = nil
-    profile.save
-
-    expect(profile).not_to be_persisted
-  end
-
-  it 'supports integer values' do
-    profile.age = 21
-    profile.first_name = 'Joe'
-
-    expect(profile.save).to be_truthy
-  end
-
-  it 'allows nil values' do
-    profile.home_town = 'Scranton'
-    profile.first_name = 'Dwight'
-    profile.life_story = 'Beet farmer / Paper Salesman'
-    profile.save
-    profile.home_town = nil
-
-    expect(profile.home_town).to be_nil
-  end
-
-  it 'looks up records with where_dynamic and a hash' do
-    [18, 21].each { |age| Profile.new(first_name: 'Jon', age:).save! }
-
-    expect(Profile.where_dynamic(age: 18).first).to be_truthy
+      expect(Profile.find(profile.id).dynamic_attributes.map(&:name)).to eq(['life_story'])
+    end
   end
 
   context 'when resolve_persisted is enabled' do
     before do
-      ActiveDynamic.configure do |config|
-        config.provider_class = ProfileAttributeProvider
-        config.resolve_persisted = true
+      ActiveDynamic.configure do |c|
+        c.provider_class = ProfileAttributeProvider
+        c.resolve_persisted = true
       end
     end
 
     it 'updates values on a persisted record' do
-      profile = Profile.new(first_name: 'Michael', life_story: 'Basketball machine')
-      profile.save
+      profile = Profile.create!(first_name: 'Michael', life_story: 'Basketball machine')
 
       expect(profile.update(life_story: 'Regional manager')).to be_truthy
     end
 
-    it 'handles a boolean resolve_persisted value' do
-      expect(Profile.new.send(:should_resolve_persisted?)).to be_truthy
+    it 'surfaces a newly added definition on a record saved before it existed' do
+      profile = Profile.create!(first_name: 'Michael', life_story: 'Basketball machine')
+      ActiveDynamic.configure do |c|
+        c.provider_class = ExtendedProfileAttributeProvider
+        c.resolve_persisted = true
+      end
+
+      expect(Profile.find(profile.id).dynamic_attributes.map(&:name)).to eq(
+        ['life_story', 'age', 'home_town', 'ssn', 'nickname']
+      )
     end
 
-    it 'handles a proc resolve_persisted value' do
-      ActiveDynamic.configure { |config| config.resolve_persisted = proc { |_model| true } }
+    describe '#should_resolve_persisted?' do
+      subject(:should_resolve_persisted?) { Profile.new.send(:should_resolve_persisted?) }
 
-      expect(Profile.new.send(:should_resolve_persisted?)).to be_truthy
+      it 'returns the boolean config value' do
+        expect(should_resolve_persisted?).to be(true)
+      end
+
+      context 'when configured with a proc' do
+        before { ActiveDynamic.configure { |c| c.resolve_persisted = proc { |_model| true } } }
+
+        it 'evaluates the proc against the model' do
+          expect(should_resolve_persisted?).to be(true)
+        end
+      end
     end
   end
 end
