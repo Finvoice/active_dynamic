@@ -38,7 +38,3 @@ consumer-app concerns, not the gem's.
   Do not rely on rows persisting across examples or on insertion-order ids.
 - **`resolve_persisted` matters.** It changes whether `dynamic_attributes` returns
   `AttributeDefinition`s or DB-backed `ActiveDynamic::Attribute`s — test the branch you mean.
-- **Do not remove `ActiveSupport::JSON::Encoding.time_precision = 6` in `spec_helper`.** It
-  makes SQLite's microsecond timestamps round-trip through `find_or_initialize_by(as_json)`
-  the way production MySQL (`datetime` with no sub-second precision) does. The comment there
-  explains it; the real fix is to stop looking rows up by `as_json`.
