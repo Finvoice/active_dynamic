@@ -1,6 +1,5 @@
 module ActiveDynamic
   class AttributeDefinition
-
     attr_reader :display_name, :datatype, :value, :name, :required
 
     def initialize(display_name, params = {})
@@ -13,7 +12,7 @@ module ActiveDynamic
 
       # custom attributes from Provider
       options.each do |key, value|
-        self.instance_variable_set("@#{key}", value)
+        instance_variable_set("@#{key}", value)
         self.class.send(:attr_reader, key)
       end
     end
@@ -21,6 +20,5 @@ module ActiveDynamic
     def required?
       !!@required
     end
-
   end
 end

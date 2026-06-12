@@ -1,17 +1,154 @@
-Documentation:
+inherit_from: .rubocop_todo.yml
+
+# Mirrors the rules used in finvoice_underwrite_api, minus the Rails-only pieces
+# (rubocop-rails / rubocop-factory_bot / rubocop-rspec_rails plugins, Rails cops,
+# TargetRailsVersion) since this is a plain gem.
+
+plugins:
+  - rubocop-rspec
+  - rubocop-performance
+
+inherit_mode:
+  merge:
+    - Exclude
+
+AllCops:
+  DisplayCopNames: true
+  DisplayStyleGuide: true
+  NewCops: enable
+  TargetRubyVersion: 3.4
+  Exclude:
+    - "bin/**/*"
+    - "vendor/**/*"
+
+Style/Documentation:
   Enabled: false
 
-Style/EmptyLinesAroundBody:
+Style/FrozenStringLiteralComment:
+  # String literals in Ruby 3.0 are frozen by default, so we enforce it to be
+  # absent https://www.jakeworth.com/posts/frozen-string-comment-yagni/
+  EnforcedStyle: never
+  Include:
+    - "**/*.rb"
+    - "**/*.rake"
+    - "Gemfile"
+    - "Rakefile"
+
+Style/WordArray:
+  # Prefer brackets because %w is ugly and harder to read with modern syntax
+  # highlighting since it makes the strings look like symbols or variables
+  EnforcedStyle: brackets
+  MinSize: 1
+
+Style/SymbolArray:
+  # Prefer brackets because %i is ugly and harder to read with modern syntax
+  # highlighting since it makes the strings look like symbols or variables
+  EnforcedStyle: brackets
+  MinSize: 1
+
+Layout/ClassStructure:
+  Enabled: true
+  ExpectedOrder:
+    - module_inclusion
+    - constants
+    - attr_macros
+    - associations_belongs_to
+    - associations_has_one
+    - associations_has_many
+    - validations
+    - initializer
+    - public_class_methods
+    - public_methods
+    - protected_methods
+    - private_methods
+  Categories:
+    module_inclusion:
+      - include
+      - prepend
+      - extend
+    attr_macros:
+      - attr_accessor
+      - attr_reader
+      - attr_writer
+      - attribute
+      - delegate
+    associations_belongs_to:
+      - belongs_to
+    associations_has_one:
+      - has_one
+    associations_has_many:
+      - has_many
+    validations:
+      - validates
+
+Metrics/ClassLength:
+  # Default settings are a little low and often the Metrics/AbcSize,
+  # Metrics/MethodLength, and Metrics/PerceivedComplexity cops are more useful
+  # for identifying overly complex classes.
+  Max: 200
+  CountAsOne: ["array", "hash", "heredoc", "method_call"]
+
+Metrics/MethodLength:
+  CountAsOne: ["array", "hash", "heredoc", "method_call"]
+
+Metrics/BlockLength:
+  CountAsOne: ["array", "hash", "heredoc", "method_call"]
+
+Style/HashSyntax:
+  Enabled: true
+  EnforcedStyle: no_mixed_keys
+  EnforcedShorthandSyntax: always
+
+Layout/FirstArrayElementLineBreak:
+  Enabled: true
+
+Layout/FirstHashElementLineBreak:
+  Enabled: true
+
+Layout/FirstMethodArgumentLineBreak:
+  Enabled: true
+
+Layout/MultilineArrayLineBreaks:
+  Enabled: true
+
+Layout/MultilineHashKeyLineBreaks:
+  Enabled: true
+
+Layout/MultilineMethodArgumentLineBreaks:
+  Enabled: true
+
+Layout/MultilineMethodParameterLineBreaks:
+  Enabled: true
+
+Layout/RedundantLineBreak:
+  InspectBlocks: true
+  Enabled: true
+
+Layout/MultilineMethodCallIndentation:
   Enabled: false
 
-Style/EmptyLinesAroundBlockBody:
+Style/EmptyStringInsideInterpolation:
+  Enabled: true
+  EnforcedStyle: ternary
+
+Style/HashAsLastArrayItem:
   Enabled: false
 
-Style/EmptyLinesAroundClassBody:
-  Enabled: false
+RSpec/ExampleLength:
+  CountAsOne: ["array", "hash", "heredoc", "method_call"]
+  Max: 10
 
-Style/EmptyLinesAroundMethodBody:
-  Enabled: false
+RSpec/NestedGroups:
+  # We only use describe for classes and methods, so we reset the group count
+  # for describe blocks, and lower the maximum number of nested groups (e.g.
+  # context, etc.) to limit nesting.
+  AllowedGroups: ["describe"]
+  Max: 3
 
-Style/EmptyLinesAroundModuleBody:
-  Enabled: false
+RSpec/MultipleExpectations:
+  Enabled: true
+  Max: 10
+
+RSpec/MultipleMemoizedHelpers:
+  Enabled: true
+  Max: 15
