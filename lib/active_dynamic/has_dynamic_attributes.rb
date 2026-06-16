@@ -172,9 +172,9 @@ module ActiveDynamic
     end
 
     def save_dynamic_attribute(field, field_value)
-      # nil clears an existing row but must never materialize a new one — and
-      # find_or_initialize_by appends the built record to the association, so
-      # the check has to happen before it.
+      # nil nulls the value of an existing row (the row itself stays), but must never
+      # materialize a new row for an attribute that was never set. The guard runs before
+      # find_or_initialize_by, which would otherwise append a new record and persist it all-nil.
       return if field_value.nil? && active_dynamic_attributes.none? { |attribute| attribute.name == field.name }
 
       attr = active_dynamic_attributes.find_or_initialize_by(name: field.name)
