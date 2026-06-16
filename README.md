@@ -1,13 +1,7 @@
 # ActiveDynamic
 
-[![Gem Version](https://badge.fury.io/rb/active_dynamic.svg)](https://badge.fury.io/rb/active_dynamic)
-[![Code Climate](https://codeclimate.com/github/koss-lebedev/active_dynamic/badges/gpa.svg)](https://codeclimate.com/github/koss-lebedev/active_dynamic)
-[![Build Status](https://travis-ci.org/koss-lebedev/active_dynamic.svg?branch=master)](https://travis-ci.org/koss-lebedev/active_dynamic)
-
-ActiveDynamic allows to dynamically add properties to your ActiveRecord models and 
-work with them as regular properties.
-To see this in practice, check out the demo application available at [https://github.com/koss-lebedev/active_dynamic_demo](https://github.com/koss-lebedev/active_dynamic_demo).
-I also wrote [an article](https://medium.com/@koss_lebedev/how-to-dynamically-add-attributes-to-your-activerecord-models-e233b17ad695#.k66n002of) explaining how to use active_dynamic.
+ActiveDynamic allows you to dynamically add properties to your ActiveRecord
+models and work with them as regular properties.
 
 ## Installation
 
@@ -49,8 +43,9 @@ end
 
 class ProfileAttributeProvider
 
-  # Constructor will receive an instance to which dynamic attributes are added
-  def initialize(model)
+  # Constructor will receive an instance to which dynamic attributes are added,
+  # plus an optional filtered value used by where_dynamic.
+  def initialize(model, filtered_value = nil)
     @model = model
   end
   
@@ -63,13 +58,49 @@ class ProfileAttributeProvider
       
       # Optionally you can provide datatype, system name, and default value.
       # If system name is not specified, it will be generated automatically from display name
-      ActiveDynamic::AttributeDefinition.new('age', datatype: ActiveDynamic::DataType::Integer, default_value: 18)
+      ActiveDynamic::AttributeDefinition.new('age', datatype: ActiveDynamic::DataType::Integer, default_value: 18),
+
+      # Sensitive attributes can be stored with Active Record Encryption.
+      ActiveDynamic::AttributeDefinition.new('ssn', encrypt_value: true)
     ]
   end
   
 end
 
 ```
+
+### Encrypted dynamic values
+
+Pass `encrypt_value: true` to `ActiveDynamic::AttributeDefinition` for sensitive
+fields:
+
+```ruby
+ActiveDynamic::AttributeDefinition.new(
+  'ssn',
+  datatype: ActiveDynamic::DataType::Text,
+  encrypt_value: true
+)
+```
+
+Encrypted fields are stored in `active_dynamic_attributes.encrypted_value`
+using Active Record Encryption. The plaintext `value` column is cleared for
+those rows, and callers continue to read and write the field through the normal
+dynamic accessor:
+
+```ruby
+profile.ssn = '123-45-6789'
+profile.save!
+profile.reload.ssn # => '123-45-6789'
+```
+
+Existing plaintext rows still read normally. If a field is later marked with
+`encrypt_value: true`, the next write to that field stores the value encrypted
+and clears the plaintext column. Rows already stored encrypted keep using the
+encrypted column even if a later definition passes `encrypt_value: false`, so
+values do not silently downgrade back to plaintext. To move a row back to
+plaintext storage, clear its `encrypted_value` column first. Once
+`encrypted_value` is `NULL` and the field definition no longer passes
+`encrypt_value: true`, future writes use the plaintext `value` column.
 
 To resolve dynamic attribute definitions for more than one model:
 
@@ -88,7 +119,7 @@ end
  
 class ProfileAttributeProvider
  
-  def initialize(model)
+  def initialize(model, filtered_value = nil)
     @model = model   
   end
   
@@ -145,14 +176,13 @@ ActiveDynamic provides `where_dynamic` class method, that you can use to search 
   Profile.where_dynamic(age: 21)
 ```
 
-At the moment, only hash arguments are supported. 
+At the moment, only hash arguments are supported.
 
-## Contributing
-
-Bug reports and pull requests are welcome on GitHub at https://github.com/koss-lebedev/active_dynamic. This project is intended to be a safe, welcoming space for collaboration, and contributors are expected to adhere to the [Contributor Covenant](http://contributor-covenant.org) code of conduct.
-
+`where_dynamic` queries the plaintext `value` column and is intended only for
+non-encrypted dynamic attributes. Attributes defined with `encrypt_value: true`
+are stored in `encrypted_value` and are not queryable with `where_dynamic`.
+Avoid using encrypted dynamic attributes as filters.
 
 ## License
 
 The gem is available as open source under the terms of the [MIT License](http://opensource.org/licenses/MIT).
-

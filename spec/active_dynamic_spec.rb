@@ -31,9 +31,9 @@ RSpec.describe ActiveDynamic do
 
     it do
       expect(dynamic_attributes).to be_an(Array)
-      expect(dynamic_attributes.map(&:name)).to eq(['life_story', 'age', 'home_town'])
+      expect(dynamic_attributes.map(&:name)).to eq(['life_story', 'age', 'home_town', 'ssn'])
       expect(dynamic_attributes.map(&:display_name)).to eq(
-        ['Life Story', 'Age', 'Please, tell us what is your home town']
+        ['Life Story', 'Age', 'Please, tell us what is your home town', 'SSN']
       )
     end
 
@@ -96,6 +96,10 @@ RSpec.describe ActiveDynamic do
     end
   end
 
+  it 'sets the attribute names' do
+    expect(profile.dynamic_attributes.map(&:name)).to eq(['life_story', 'age', 'home_town', 'ssn'])
+  end
+
   describe '.find' do
     it 'reloads persisted dynamic values' do
       profile.life_story = 'Beet farmer / Paper Salesman'
@@ -144,7 +148,7 @@ RSpec.describe ActiveDynamic do
       end
 
       expect(Profile.find(profile.id).dynamic_attributes.map(&:name)).to eq(
-        ['life_story', 'age', 'home_town', 'nickname']
+        ['life_story', 'age', 'home_town', 'ssn', 'nickname']
       )
     end
 

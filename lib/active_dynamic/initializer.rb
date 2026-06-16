@@ -2,7 +2,7 @@ ActiveDynamic.configure do |config|
   # Specify class in your application responsible for resolving dynamic
   # properties for your model. This class should accept the `model` and an
   # optional `filtered_value` as constructor parameters, and have a `call`
-  # method that returns an array of AttributeDefinition
+  # method that returns an array of ActiveDynamic::AttributeDefinition
   config.provider_class = ActiveDynamic::NullProvider
 
   # When new dynamic attributes are defined after object was saved,
