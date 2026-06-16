@@ -15,8 +15,14 @@ module ActiveDynamic
     # Whether the value must be stored encrypted: either flagged by the field
     # definition (transient, set from the provider) or the row already stores
     # an encrypted value — a row never silently downgrades to plaintext.
+    #
+    # The "already encrypted?" check reads the raw column before type cast so it
+    # stays a cheap, non-throwing boolean: the encrypted getter would decrypt,
+    # coupling this routing decision (and every plain #value=) to the value
+    # decrypting successfully. The raw column is non-nil exactly when a value is
+    # present (ciphertext once persisted, the assigned value before save).
     def encrypt_value
-      @encrypt_value || !encrypted_value.nil?
+      @encrypt_value || !read_attribute_before_type_cast(:encrypted_value).nil?
     end
 
     # Reads resolve transparently to the encrypted column, falling back to the

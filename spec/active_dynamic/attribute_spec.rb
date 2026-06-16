@@ -242,4 +242,42 @@ RSpec.describe ActiveDynamic::Attribute do
       expect(attribute.reload.value).to eq('123-45-6789')
     end
   end
+
+  describe '#encrypt_value when the stored ciphertext cannot be decrypted' do
+    # A rotated/missing key or corrupt ciphertext must not make routing raise:
+    # deciding "is this row encrypted?" reads the raw column, never the decrypting
+    # getter, so it stays a cheap boolean and writes keep targeting the right column.
+    subject(:attribute) do
+      record = described_class.create!(
+        customizable: Profile.create!(first_name: 'Dwight'),
+        name: 'ssn',
+        display_name: 'SSN',
+        datatype: ActiveDynamic::DataType::Text,
+        value: '123-45-6789',
+        encrypt_value: true
+      )
+
+      # Replace the at-rest ciphertext with a payload that cannot be decrypted.
+      corrupt = ActiveRecord::Base.sanitize_sql(
+        ['UPDATE active_dynamic_attributes SET encrypted_value = ? WHERE id = ?', 'not-valid-ciphertext', record.id]
+      )
+      ActiveRecord::Base.connection.execute(corrupt)
+
+      described_class.find(record.id)
+    end
+
+    it 'reports the row as encrypted without decrypting, where decrypting would raise' do
+      # The scenario is real: the decrypting getter does raise on this payload...
+      expect { attribute.encrypted_value }.to raise_error(ActiveRecord::Encryption::Errors::Base)
+
+      # ...yet the routing decision does not.
+      expect(attribute.encrypt_value).to be(true)
+    end
+
+    it 'keeps routing writes to the encrypted column without decrypting' do
+      expect { attribute.value = '999-99-9999' }.not_to raise_error
+      expect(attribute.read_attribute(:value)).to be_nil
+      expect(attribute.value).to eq('999-99-9999')
+    end
+  end
 end
