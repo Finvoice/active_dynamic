@@ -105,6 +105,10 @@ RSpec.describe ActiveDynamic::HasDynamicAttributes do
         Profile.find(profile.id).update!(ssn: nil)
 
         expect(Profile.find(profile.id).ssn).to be_nil
+
+        row = Profile.find(profile.id).active_dynamic_attributes.find_by(name: 'ssn')
+        expect(row.read_attribute(:value)).to be_nil
+        expect(row.read_attribute(:encrypted_value)).to be_nil
       end
     end
 
