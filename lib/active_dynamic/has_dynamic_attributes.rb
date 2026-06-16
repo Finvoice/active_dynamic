@@ -92,6 +92,13 @@ module ActiveDynamic
       # Stamp the definition's current encryption flag onto the persisted rows so
       # that updating a value after its field is flagged re-routes it to the
       # encrypted column (see ActiveDynamic::Attribute#value=).
+      #
+      # This intentionally mutates the live, loaded association objects rather than
+      # copies: save_dynamic_attribute re-fetches the same object via
+      # find_or_initialize_by and reads `field.encrypt_value` from it, so the write
+      # path depends on the flag set here. (Stamping a copy would silently drop the
+      # plaintext-to-encrypted migration.) `nil` resets the flag when the provider
+      # no longer defines the field, so a no-longer-encrypted field stops re-routing.
       definitions_by_name = attribute_definitions.index_by(&:name)
       persisted.each { |attribute| attribute.encrypt_value = definitions_by_name[attribute.name]&.encrypt_value }
 
